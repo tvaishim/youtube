@@ -110,8 +110,6 @@ class ThreadDownloadVideo(QtCore.QThread):
             'progress_hooks': [self.progress_hook],
         }
 
-        print(ydl_opts)
-
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
             try:
                 result = ydl.download([url])
@@ -131,16 +129,14 @@ class ThreadDownloadVideo(QtCore.QThread):
                     filename = str(path.with_stem(f"{path.stem}_%03d"))
 
                     cmd = f'ffmpeg.exe -i "{result_filename}" -f segment -segment_time {seg_size} -c copy "{filename}"'
-                    print(cmd)
                     try:
-                        pp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-                        p = pp.wait()   # Ожидать завершения процесса
-                        print(p)
-                        if p != 0:
-                            stdout, stderr = pp.communicate()
-                            print(stdout)
-                            print(stderr)
-                            raise Exception(stderr)
+                        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+                        stdout, stderr = p.communicate()
+                        if p.returncode != 0:
+                            stderr = stderr.decode('utf-8', 'replace')
+                            msgs = stderr.strip().split('\n')
+                            msg = msgs[-1]
+                            raise Exception(msg)
                     except Exception as e:
                         self.signal_info.emit(str(e))
                         return

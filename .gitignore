@@ -1,0 +1,19 @@
+# created by virtualenv automatically
+
+# Distribution / packaging
+Lib/
+Scripts/
+
+# virtualenv
+.venv
+venv/
+ENV/
+pyvenv.cfg
+__pycache__/
+
+# PyCharm IDE
+.idea/
+
+notes.txt
+ffmpeg.exe
+

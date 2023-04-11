@@ -1,5 +1,5 @@
 import sys
-import youtube_dl
+import yt_dlp
 from dataclasses import dataclass
 from datetime import timedelta
 from math import ceil
@@ -18,7 +18,7 @@ class LinkInfo:
     id: str
     title: str
     duration: int
-    tbr: float
+    abr: float
     filesize: int
     time: timedelta
     url: str
@@ -34,9 +34,10 @@ class LinkInfo:
             self.time = timedelta(seconds=self.duration)
             self.url = dict_info["url"]
 
-            l = sorted([x for x in info["formats"] if "tiny" in x["format_note"]], key=lambda k: k['tbr'], reverse=True)
+            l = sorted([x for x in info["formats"] if "audio" in x["format"]], key=lambda k: k['abr'], reverse=True)
+
             if l:
-                self.tbr = int(l[0]["tbr"])
+                self.abr = int(l[0]["abr"])
                 self.filesize = l[0]["filesize"]
 
         else:
@@ -57,11 +58,12 @@ class ThreadGetInfo(QtCore.QThread):
         url = self.app.main_window.ui.lineEdit.text().strip()
 
         ydl_opts = {"simulate": True}
-        ydl = youtube_dl.YoutubeDL(ydl_opts)
+        ydl = yt_dlp.YoutubeDL(ydl_opts)
 
         with ydl:
             try:
                 result = ydl.extract_info(url)
+
                 self.signal_finish.emit({"res": True, "info": result, "url": url})
             except Exception as e:
                 self.signal_finish.emit({"res": False, "info": {}, "error": str(e), "url": url})
@@ -79,7 +81,7 @@ class ThreadDownloadVideo(QtCore.QThread):
 
     def progress_hook(self, d):
         if d['status'] == 'downloading':
-            self.signal_progress.emit(int(d['downloaded_bytes'] / d['total_bytes'] * 100))
+            self.signal_progress.emit(int(d['downloaded_bytes'] / d['total_bytes_estimate'] * 100))
         elif d['status'] == 'finished':
             self.signal_info.emit(f"Загружено, конвертируем...")
             self.signal_progress.emit(100)
@@ -110,7 +112,7 @@ class ThreadDownloadVideo(QtCore.QThread):
             'progress_hooks': [self.progress_hook],
         }
 
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             try:
                 result = ydl.download([url])
             except Exception as e:
@@ -215,6 +217,8 @@ class MainApp(QtWidgets.QApplication):
     @staticmethod
     def del_points(txt):
         res = txt
+        res = res.replace("#", "")
+        res = res.replace(":", "")
         res = res.replace("/", "")
         res = res.replace("\\", "")
         res = res.replace("$", "")
@@ -230,7 +234,7 @@ class MainApp(QtWidgets.QApplication):
     def finish_info(self, result_info):
         if result_info["res"]:
             self.link_info = LinkInfo(result_info)
-            txt = f"Имя: {self.link_info.title}\nПродолжительность: {str(self.link_info.time)},    Размер: {(self.link_info.filesize/(1024*1024)):.2f} Мб,    Битрейт: {self.link_info.tbr} кбит/с"
+            txt = f"Имя: {self.link_info.title}\nПродолжительность: {str(self.link_info.time)},    Размер: {(self.link_info.filesize/(1024*1024)):.2f} Мб,    Битрейт: {self.link_info.abr} кбит/с"
         else:
             self.link_info = LinkInfo()
             txt = result_info["error"]
